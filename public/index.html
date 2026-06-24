@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Clay Chat OpenWorld - Park Edition</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #eef2f5; color: #333; margin: 0; padding: 8px; box-sizing: border-box; overflow-x: hidden; }
+        h1 { font-size: 18px; margin: 5px 0; text-align: center; }
+        p { margin: 0 0 8px 0; color: #7f8c8d; font-size: 12px; text-align: center; }
+        
+        .creator-container { display: flex; flex-direction: column; gap: 15px; background: white; padding: 15px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); max-width: 400px; width: 100%; box-sizing: border-box; }
+        .canvas-area { position: relative; background: #fafafa; border: 3px solid #e0e0e0; border-radius: 15px; overflow: hidden; display: flex; justify-content: center; align-items: center; width: 100%; }
+        #avatarCanvas { cursor: crosshair; display: block; max-width: 100%; height: auto; }
+        .toolbar { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+        .section-title { font-size: 12px; font-weight: bold; color: #7f8c8d; text-transform: uppercase; margin-bottom: 4px; }
+        
+        .animal-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+        .animal-option { padding: 6px 2px; border: 2px solid #dcdde1; border-radius: 10px; cursor: pointer; text-align: center; background: #f8f9fa; font-size: 11px; font-weight: bold; }
+        .animal-option.active { border-color: #2c3e50; background: #ebf3ff; color: #2980b9; }
+
+        .color-section { display: flex; flex-direction: column; gap: 6px; }
+        .color-row { display: flex; gap: 10px; align-items: center; }
+        .color-palette { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; flex: 1; }
+        .color-box { height: 32px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
+        .color-box.active { border-color: #2c3e50; transform: scale(1.05); }
+        
+        .rainbow-picker-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 45px; }
+        .rainbow-input { -webkit-appearance: none; appearance: none; width: 38px; height: 38px; background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); border-radius: 50%; border: 2px solid #dcdde1; cursor: pointer; }
+        .rainbow-input::-webkit-color-swatch-wrapper { padding: 0; }
+        .rainbow-input::-webkit-color-swatch { border: none; border-radius: 50%; background: transparent !important; }
+        .rainbow-text { font-size: 9px; font-weight: bold; color: #7f8c8d; margin-top: 2px; }
+
+        .name-input { padding: 10px; border: 2px solid #dcdde1; border-radius: 10px; font-size: 14px; width: 100%; box-sizing: border-box; }
+        .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        button { padding: 10px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
+        .btn-undo { background: #ffe0b2; color: #e65100; }
+        .btn-clear { background: #ffebee; color: #c62828; }
+        .btn-finish { background: #2ecc71; color: white; grid-column: span 2; padding: 12px; font-size: 14px; }
+        
+        #worldContainer { display: none; width: 100%; max-width: 480px; box-sizing: border-box; }
+        .game-layout { display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 5px; width: 100%; }
+        
+        .canvas-wrapper { width: 100%; background: #ecf0f1; border: 3px solid #2c3e50; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); box-sizing: border-box; overflow: hidden; }
+        #worldCanvas { display: block; width: 100%; height: auto; background: #87ceeb; cursor: pointer; }
+        
+        .chat-box-area { width: 100%; background: white; border: 3px solid #2c3e50; border-radius: 15px; display: flex; flex-direction: column; overflow: hidden; height: 300px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); box-sizing: border-box; }
+        .chat-log { flex: 1; padding: 10px; overflow-y: auto; text-align: left; font-size: 13px; display: flex; flex-direction: column; gap: 4px; background: #f8f9fa; }
+        .chat-msg { background: #e3f2fd; padding: 5px 8px; border-radius: 8px; max-width: 90%; word-break: break-all; }
+        .chat-msg.system { background: #ffe0b2; color: #e65100; font-style: italic; }
+        
+        .emoji-bar { background: #f1f2f6; border-top: 1px solid #dcdde1; display: flex; gap: 8px; padding: 6px 10px; overflow-x: auto; white-space: nowrap; }
+        .emoji-btn { font-size: 18px; cursor: pointer; background: none; border: none; padding: 2px; }
+
+        .chat-input-container { display: flex; border-top: 2px solid #2c3e50; background: white; align-items: center; }
+        .chat-input { flex: 1; padding: 10px; border: none; font-size: 13px; outline: none; }
+        
+        .image-upload-btn { background: #9b59b6; color: white; padding: 10px 14px; font-size: 16px; border-radius: 0; border: none; cursor: pointer; }
+        .btn-send { background: #3498db; color: white; border-radius: 0; padding: 10px 18px; font-size: 13px; border: none; cursor: pointer; }
+
+        @media (min-width: 768px) {
+            .creator-container { flex-direction: row; max-width: 800px; }
+            .toolbar { flex: 1; }
+            .canvas-area { width: 400px; height: 400px; }
+            #worldContainer { max-width: 600px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="creatorScreen">
+        <h1>เลือกหัวสัตว์ & ระบายสี 🦊</h1>
+        <p>เลือกประเภทสัตว์ ตั้งชื่อ ระบายสี แล้วกดเข้าสู่โลก Open World</p>
+        <div class="creator-container">
+            <div class="toolbar">
+                <div class="name-group">
+                    <div class="section-title">ชื่อตัวละคร (Nickname)</div>
+                    <input type="text" id="nicknameInput" class="name-input" placeholder="ชื่อของคุณ..." maxlength="15">
+                </div>
+                <div>
+                    <div class="section-title">เลือกประเภทสัตว์ (8 ชนิด)</div>
+                    <div class="animal-selector">
+                        <div class="animal-option active" onclick="changeAnimal('panda', this)">🐼 แพนด้า</div>
+                        <div class="animal-option" onclick="changeAnimal('cat', this)">🐱 แมว</div>
+                        <div class="animal-option" onclick="changeAnimal('fox', this)">🦊 จิ้งจอก</div>
+                        <div class="animal-option" onclick="changeAnimal('bear', this)">🐻 หมี</div>
+                        <div class="animal-option" onclick="changeAnimal('rabbit', this)">🐰 กระต่าย</div>
+                        <div class="animal-option" onclick="changeAnimal('pig', this)">🐷 หมู</div>
+                        <div class="animal-option" onclick="changeAnimal('lion', this)">🦁 สิงโต</div>
+                        <div class="animal-option" onclick="changeAnimal('chicken', this)">🐔 ไก่</div>
+                    </div>
+                </div>
+                
+                <div class="color-section">
+                    <div class="section-title">ถาดสีดินน้ำมัน & ไล่เฉดสีรุ้ง</div>
+                    <div class="color-row">
+                        <div class="color-palette">
+                            <div class="color-box active" style="background: #e74c3c;" onclick="selectColor('#e74c3c', this)"></div>
+                            <div class="color-box" style="background: #3498db;" onclick="selectColor('#3498db', this)"></div>
+                            <div class="color-box" style="background: #2ecc71;" onclick="selectColor('#2ecc71', this)"></div>
+                            <div class="color-box" style="background: #f1c40f;" onclick="selectColor('#f1c40f', this)"></div>
+                            <div class="color-box" style="background: #9b59b6;" onclick="selectColor('#9b59b6', this)"></div>
+                            <div class="color-box" style="background: #e67e22;" onclick="selectColor('#e67e22', this)"></div>
+                            <div class="color-box" style="background: #1abc9c;" onclick="selectColor('#1abc9c', this)"></div>
+                            <div class="color-box" style="background: #2c3e50;" onclick="selectColor('#2c3e50', this)"></div>
+                        </div>
+                        <div class="rainbow-picker-wrapper">
+                            <input type="color" id="rainbowPicker" class="rainbow-input" value="#e74c3c" oninput="selectRainbowColor(this.value)">
+                            <div class="rainbow-text">ไล่เฉด</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-title">ขนาดหัวแปรง</div>
+                    <input type="range" id="brushSize" min="4" max="30" value="12" style="width:100%;">
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-undo" onclick="undo()">↩ Undo</button>
+                    <button class="btn-clear" onclick="clearCanvas()">ล้างสี</button>
+                    <button class="btn-finish" onclick="finishAvatar()">ยืนยัน & เข้าสู่โลกเกม</button>
+                </div>
+            </div>
+            <div class="canvas-area">
+                <canvas id="avatarCanvas" width="400" height="400"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="worldContainer">
+        <h1>ลานสวนสาธารณะสัตว์ 🌳💬</h1>
+        <p></p>
+        
+        <div class="game-layout">
+            <div class="canvas-wrapper">
+                <canvas id="worldCanvas" width="800" height="415"></canvas>
+            </div>
+            
+            <div class="chat-box-area">
+                <div class="chat-log" id="chatLog">
+                    <div class="chat-msg system">ระบบ: ยินดีต้อนรับสู่ปาร์ตี้สวนสาธารณะ!</div>
+                </div>
+                
+                <div class="emoji-bar">
+                    <button class="emoji-btn" onclick="addEmoji('😀')">😀</button>
+                    <button class="emoji-btn" onclick="addEmoji('😂')">😂</button>
+                    <button class="emoji-btn" onclick="addEmoji('👍')">👍</button>
+                    <button class="emoji-btn" onclick="addEmoji('❤️')">❤️</button>
+                    <button class="emoji-btn" onclick="addEmoji('🔥')">🔥</button>
+                    <button class="emoji-btn" onclick="addEmoji('🎉')">🎉</button>
+                </div>
+
+                <div class="chat-input-container">
+                    <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="uploadImage(this)">
+                    <button class="image-upload-btn" onclick="document.getElementById('imageInput').click()">📷</button>
+                    
+                    <input type="text" id="chatInput" class="chat-input" placeholder="พิมพ์ข้อความที่นี่..." maxlength="50">
+                    <button class="btn-send" onclick="sendChatMessage()">ส่ง</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === [ส่วนที่ 1: ระบบวาดดินน้ำมัน] ===
+        const canvas = document.getElementById('avatarCanvas');
+        const ctx = canvas.getContext('2d');
+        const brushSizeInput = document.getElementById('brushSize');
+        const nameInput = document.getElementById('nicknameInput');
+        let painting = false; let currentColor = '#e74c3c'; let undoStack = [];
+        
+        const animalTemplates = {
+            panda: `<g fill="#bdc3c7"><circle cx="145" cy="85" r="25" /> <circle cx="255" cy="85" r="25" /><path d="M140,110 Q200,75 260,110 Q285,150 260,200 Q200,225 140,200 Q115,150 140,110 Z" /><path d="M160,200 C160,190 240,190 240,200 L235,280 L165,280 Z" /><rect x="165" y="280" width="30" height="90" rx="15" /> <rect x="205" y="280" width="30" height="90" rx="15" /></g><circle cx="165" cy="135" r="14" fill="#7f8c8d" /> <circle cx="235" cy="135" r="14" fill="#7f8c8d" /><circle cx="165" cy="135" r="4" fill="#333" /> <circle cx="235" cy="135" r="4" fill="#333" /><polygon points="190,160 210,160 200,170" fill="#7f8c8d" /><path d="M190,180 Q200,190 210,180" stroke="#7f8c8d" stroke-width="3" fill="none" />`,
+            cat: `<g fill="#bdc3c7"><polygon points="135,115 145,65 180,100" /> <polygon points="265,115 255,65 220,100" /><path d="M140,115 Q200,85 260,115 Q280,155 255,195 Q200,215 145,195 Q120,155 140,115 Z" /><path d="M160,195 C160,185 240,185 240,195 L235,280 L165,280 Z" /><rect x="165" y="280" width="30" height="90" rx="15" /> <rect x="205" y="280" width="30" height="90" rx="15" /></g><polygon points="160,140 175,130 170,150" fill="#7f8c8d" /> <polygon points="240,140 225,130 230,150" fill="#7f8c8d" /><polygon points="193,163 207,163 200,170" fill="#7f8c8d" /><path d="M150,165 L125,160 M150,172 L120,172 M250,165 L275,160 M250,172 L280,172" stroke="#7f8c8d" stroke-width="2" />`,
+            fox: `<g fill="#bdc3c7"><polygon points="120,120 120,60 170,100" /> <polygon points="280,120 280,60 230,100" /><polygon points="130,115 200,80 270,115 290,160 200,225 110,160" /><path d="M160,210 C160,200 240,200 240,210 L235,280 L165,280 Z" /><rect x="165" y="280" width="30" height="90" rx="15" /> <rect x="205" y="280" width="30" height="90" rx="15" /></g><polygon points="155,135 185,140 150,150" fill="#7f8c8d" /> <polygon points="245,135 215,140 250,150" fill="#7f8c8d" /><polygon points="190,195 210,195 200,207" fill="#555" />`,
+            bear: `<g fill="#bdc3c7"><circle cx="150" cy="80" r="22" /> <circle cx="250" cy="80" r="22" /><path d="M140,105 C145,80 255,80 260,105 C285,140 275,200 250,205 C225,210 175,210 150,205 C125,200 115,140 140,105 Z" /><path d="M160,205 C160,195 240,195 240,205 L235,280 L165,280 Z" /><rect x="165" y="280" width="30" height="90" rx="15" /> <rect x="205" y="280" width="30" height="90" rx="15" /></g><circle cx="170" cy="135" r="5" fill="#7f8c8d" /> <circle cx="230" cy="135" r="5" fill="#7f8c8d" /><ellipse cx="200" cy="170" rx="20" ry="15" fill="#a6b0b7" /><circle cx="200" cy="165" r="6" fill="#7f8c8d" />`,
+            rabbit: `<g fill="#bdc3c7"><rect x="140" y="30" width="22" height="70" rx="11" /><rect x="238" y="30" width="22" height="70" rx="11" /><path d="M140,110 Q200,80 260,110 Q280,150 255,195 Q200,215 145,195 Q120,150 140,110 Z" /><path d="M160,195 L235,195 L235,280 L165,280 Z" /><rect x="165" y="280" width="30" height="90" rx="15" /><rect x="205" y="280" width="30" height="90" rx="15" /></g><circle cx="165" cy="140" r="5" fill="#7f8c8d" /><circle cx="235" cy="140" r="5" fill="#7f8c8d" /><ellipse cx="200" cy="165" rx="10" ry="7" fill="#e8a7a1" />`,
+            pig: `<g fill="#bdc3c7"><polygon points="130,95 125,65 155,85" /><polygon points="270,95 275,65 245,85" /><circle cx="200" cy="145" r="65" /><path d="M160,205 L235,205 L235,280 L165,280 Z" /><rect x="165" y="280" width="30" height="90" rx="15" /><rect x="205" y="280" width="30" height="90" rx="15" /></g><circle cx="165" cy="130" r="5" fill="#7f8c8d" /><circle cx="235" cy="130" r="5" fill="#7f8c8d" /><rect x="180" y="145" width="40" height="25" rx="12" fill="#e8a7a1" /><circle cx="192" cy="157" r="3" fill="#7f8c8d" /><circle cx="208" cy="157" r="3" fill="#7f8c8d" />`,
+            lion: `<g fill="#bdc3c7"><circle cx="200" cy="145" r="80" fill="#a6b0b7" /><circle cx="200" cy="145" r="55" /><path d="M160,195 L235,195 L235,280 L165,280 Z" /><rect x="165" y="280" width="30" height="90" rx="15" /><rect x="205" y="280" width="30" height="90" rx="15" /></g><polygon points="155,130 170,115 165,135" fill="#7f8c8d" /><polygon points="245,130 230,115 235,135" fill="#7f8c8d" /><polygon points="190,150 210,150 200,162" fill="#7f8c8d" />`,
+            chicken: `<g fill="#bdc3c7"><path d="M185,60 Q200,40 215,60 Z" fill="#e74c3c" /><circle cx="200" cy="140" r="60" /><path d="M160,195 L235,195 L235,280 L165,280 Z" /><rect x="165" y="280" width="30" height="90" rx="15" /><rect x="205" y="280" width="30" height="90" rx="15" /></g><circle cx="170" cy="125" r="4" fill="#7f8c8d" /><circle cx="230" cy="125" r="4" fill="#7f8c8d" /><polygon points="190,140 210,140 200,160" fill="#f1c40f" />`
+        };
+
+        let currentAnimal = 'panda'; let baseImage = new Image();
+
+        function loadAnimalTemplate(callback) {
+            const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">${animalTemplates[currentAnimal]}</svg>`;
+            baseImage.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+            baseImage.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(baseImage, 0, 0);
+                if (callback) callback();
+            };
+        }
+
+        function changeAnimal(animalType, element) { currentAnimal = animalType; document.querySelectorAll('.animal-option').forEach(opt => opt.classList.remove('active')); element.classList.add('active'); loadAnimalTemplate(() => { undoStack = []; saveState(); }); }
+        function selectColor(color, element) { currentColor = color; document.querySelectorAll('.color-box').forEach(box => box.classList.remove('active')); if(element) element.classList.add('active'); }
+        function selectRainbowColor(color) { currentColor = color; document.querySelectorAll('.color-box').forEach(box => box.classList.remove('active')); }
+        function clearCanvas() { loadAnimalTemplate(() => { undoStack = []; saveState(); }); }
+        function saveState() { if (undoStack.length >= 20) undoStack.shift(); undoStack.push(canvas.toDataURL()); }
+        
+        function undo() { 
+            if (undoStack.length > 1) { 
+                undoStack.pop(); let img = new Image(); img.src = undoStack[undoStack.length - 1]; 
+                img.onload = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(img, 0, 0); }; 
+            } 
+        }
+        
+        canvas.addEventListener('mousedown', (e) => { painting = true; draw(e); });
+        canvas.addEventListener('mouseup', () => { if(painting) { painting = false; ctx.beginPath(); saveState(); } });
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('touchstart', (e) => { painting = true; draw(e.touches[0]); e.preventDefault(); }, { passive: false });
+        canvas.addEventListener('touchmove', (e) => { if (!painting) return; draw(e.touches[0]); e.preventDefault(); }, { passive: false });
+        canvas.addEventListener('touchend', () => { if (painting) { painting = false; ctx.beginPath(); saveState(); } });
+        
+        function draw(e) { 
+            if (!painting) return; 
+            ctx.globalCompositeOperation = 'source-atop'; ctx.lineWidth = brushSizeInput.value; ctx.lineCap = 'round'; ctx.strokeStyle = currentColor; 
+            const rect = canvas.getBoundingClientRect(); const clientX = e.clientX || e.pageX; const clientY = e.clientY || e.pageY;
+            ctx.lineTo(clientX - rect.left, clientY - rect.top); ctx.stroke(); ctx.beginPath(); ctx.moveTo(clientX - rect.left, clientY - rect.top); 
+        }
+        
+        function finishAvatar() { 
+            const name = nameInput.value.trim(); if (name === "") { alert("กรุณาตั้งชื่อตัวละครก่อนครับ!"); return; } 
+            const finalData = canvas.toDataURL('image/png'); 
+            localStorage.setItem('clay_chat_name', name); localStorage.setItem('clay_chat_avatar', finalData); localStorage.setItem('clay_chat_animal', currentAnimal);
+            enterOpenWorld(name, finalData); 
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedName = localStorage.getItem('clay_chat_name'); const savedAvatar = localStorage.getItem('clay_chat_avatar'); const savedAnimal = localStorage.getItem('clay_chat_animal');
+            if (savedName) nameInput.value = savedName;
+            if (savedAnimal) {
+                currentAnimal = savedAnimal;
+                document.querySelectorAll('.animal-option').forEach(opt => { opt.classList.remove('active'); if(opt.getAttribute('onclick').includes(savedAnimal)) opt.classList.add('active'); });
+            }
+            if (savedAvatar) {
+                let img = new Image(); img.src = savedAvatar; img.onload = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0); undoStack = [savedAvatar]; };
+            } else { loadAnimalTemplate(() => { saveState(); }); }
+        });
+
+        // === [ส่วนที่ 2: Open World ระบบเชื่อมต่อ + ฉากหลัง] ===
+        const socket = io();
+        const worldCanvas = document.getElementById('worldCanvas');
+        const worldCtx = worldCanvas.getContext('2d');
+        const chatInput = document.getElementById('chatInput');
+        const chatLog = document.getElementById('chatLog');
+        
+        let localPlayers = {}; let imageCache = {}; const playerSpeed = 4;
+        let sharedImages = {}; 
+
+        const bgImage = new Image();
+        bgImage.src = "https://st3.depositphotos.com/1526816/13424/v/450/depositphotos_134242974-stock-illustration-park-scene-with-green-field.jpg";
+
+        function enterOpenWorld(name, avatarBase64) {
+            document.getElementById('creatorScreen').style.display = 'none';
+            document.getElementById('worldContainer').style.display = 'block';
+            
+            let startX = Math.floor(Math.random() * 600) + 100;
+            let startY = Math.floor(Math.random() * 120) + 250; 
+            socket.emit('join_world', { name: name, avatar: avatarBase64 });
+            
+            chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(); });
+            requestAnimationFrame(gameLoop);
+        }
+
+        function addEmoji(emoji) { chatInput.value += emoji; chatInput.focus(); }
+
+        function uploadImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = function() {
+                        const maxW = 120; const scale = maxW / img.width;
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = maxW; tempCanvas.height = img.height * scale;
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+                        
+                        const optimizedBase64 = tempCanvas.toDataURL('image/jpeg', 0.4);
+                        socket.emit('share_image', { image: optimizedBase64 });
+                    }
+                };
+                reader.readAsDataURL(input.files[0]);
+                input.value = ""; 
+            }
+        }
+
+        socket.on('current_players', (serverPlayers) => {
+            Object.keys(serverPlayers).forEach(id => {
+                serverPlayers[id].targetX = serverPlayers[id].x; serverPlayers[id].targetY = serverPlayers[id].y;
+                serverPlayers[id].chatMessage = ""; serverPlayers[id].chatTimer = 0;    
+            });
+            localPlayers = serverPlayers;
+        });
+
+        socket.on('new_player', (newPlayerData) => {
+            newPlayerData.targetX = newPlayerData.x; newPlayerData.targetY = newPlayerData.y;
+            newPlayerData.chatMessage = ""; newPlayerData.chatTimer = 0;
+            localPlayers[newPlayerData.id] = newPlayerData;
+        });
+
+        socket.on('player_moved', (updatedPlayerData) => {
+            if (localPlayers[updatedPlayerData.id]) {
+                localPlayers[updatedPlayerData.id].targetX = updatedPlayerData.x; localPlayers[updatedPlayerData.id].targetY = updatedPlayerData.y;
+            }
+        });
+
+        socket.on('new_chat', (chatData) => {
+            if (localPlayers[chatData.id]) { localPlayers[chatData.id].chatMessage = chatData.message; localPlayers[chatData.id].chatTimer = 300; }
+            appendChatLog(chatData.name, chatData.message, false);
+        });
+
+        socket.on('new_image_share', (imgData) => {
+            const img = new Image();
+            img.src = imgData.image;
+            img.onload = () => { sharedImages[imgData.id] = { element: img, timer: 450 }; };
+        });
+
+        socket.on('player_disconnected', (id) => { delete localPlayers[id]; delete imageCache[id]; delete sharedImages[id]; });
+
+        function handleMoveCommand(clientX, clientY) {
+            const rect = worldCanvas.getBoundingClientRect();
+            const clickX = ((clientX - rect.left) / rect.width) * worldCanvas.width;
+            let clickY = ((clientY - rect.top) / rect.height) * worldCanvas.height;
+            
+            if (clickY < 180) clickY = 180;
+            if (clickY > 400) clickY = 400;
+
+            if (localPlayers[socket.id]) { localPlayers[socket.id].targetX = clickX; localPlayers[socket.id].targetY = clickY; socket.emit('player_move', { x: clickX, y: clickY }); }
+        }
+
+        worldCanvas.addEventListener('mousedown', (e) => { handleMoveCommand(e.clientX, e.clientY); });
+        worldCanvas.addEventListener('touchstart', (e) => { handleMoveCommand(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, { passive: false });
+
+        function sendChatMessage() { const message = chatInput.value.trim(); if (message === "") return; socket.emit('send_chat', { message: message }); chatInput.value = ""; }
+        function appendChatLog(sender, text, isSystem) { const msgDiv = document.createElement('div'); if(isSystem) { msgDiv.className = "chat-msg system"; msgDiv.innerText = text; } else { msgDiv.className = "chat-msg"; msgDiv.innerHTML = `<strong>${sender}:</strong> ${text}`; } chatLog.appendChild(msgDiv); chatLog.scrollTop = chatLog.scrollHeight; }
+        function gameLoop() { updateMovement(); renderWorld(); requestAnimationFrame(gameLoop); }
+
+        function updateMovement() {
+            Object.keys(localPlayers).forEach((id) => {
+                const p = localPlayers[id];
+                let dx = p.targetX - p.x; let dy = p.targetY - p.y; let distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance > playerSpeed) { p.x += (dx / distance) * playerSpeed; p.y += (dy / distance) * playerSpeed; } else { p.x = p.targetX; p.y = p.targetY; }
+                if (p.chatTimer > 0) { p.chatTimer--; if (p.chatTimer === 0) p.chatMessage = ""; }
+                if (sharedImages[id]) { sharedImages[id].timer--; if (sharedImages[id].timer <= 0) delete sharedImages[id]; }
+            });
+        }
+
+        function renderWorld() {
+            worldCtx.clearRect(0, 0, worldCanvas.width, worldCanvas.height);
+            if (bgImage.complete) {
+                worldCtx.drawImage(bgImage, 0, 0, worldCanvas.width, worldCanvas.height);
+            } else {
+                worldCtx.fillStyle = "#2ecc71"; worldCtx.fillRect(0, 200, worldCanvas.width, 215);
+            }
+
+            const sortedIds = Object.keys(localPlayers).sort((a,b) => localPlayers[a].y - localPlayers[b].y);
+
+            sortedIds.forEach((id) => {
+                const p = localPlayers[id];
+                if (!imageCache[id]) { imageCache[id] = new Image(); imageCache[id].src = p.avatar; }
+                
+                const charSize = 80;
+                if (imageCache[id].complete) { worldCtx.drawImage(imageCache[id], p.x - (charSize/2), p.y - charSize + 10, charSize, charSize); }
+                
+                worldCtx.font = "bold 13px sans-serif"; worldCtx.fillStyle = "#2c3e50"; worldCtx.textAlign = "center";
+                worldCtx.fillText(p.name, p.x, p.y - charSize);
+
+                if (sharedImages[id]) {
+                    const imgObj = sharedImages[id].element;
+                    const imgW = 150; const imgH = imgObj.height * (imgW / imgObj.width);
+                    const imgX = p.x - (imgW / 2); const imgY = p.y - charSize - imgH - 18;
+                    worldCtx.fillStyle = "#ffffff"; worldCtx.fillRect(imgX - 4, imgY - 4, imgW + 8, imgH + 8);
+                    worldCtx.strokeStyle = "#2c3e50"; worldCtx.lineWidth = 1.5; worldCtx.strokeRect(imgX - 4, imgY - 4, imgW + 8, imgH + 8);
+                    worldCtx.drawImage(imgObj, imgX, imgY, imgW, imgH);
+                }
+
+                if (p.chatMessage && p.chatMessage !== "") {
+                    worldCtx.font = "14px sans-serif"; let textWidth = worldCtx.measureText(p.chatMessage).width;
+                    worldCtx.fillStyle = "rgba(255, 255, 255, 0.95)"; worldCtx.strokeStyle = "#2c3e50"; worldCtx.lineWidth = 1;
+                    let boxWidth = textWidth + 16; let boxHeight = 25; let boxX = p.x - (boxWidth / 2);
+                    let chatOffsetY = sharedImages[id] ? (charSize + sharedImages[id].element.height*(75/sharedImages[id].element.width) + 38) : (charSize + 22);
+                    let boxY = p.y - chatOffsetY;
+                    worldCtx.fillRect(boxX, boxY, boxWidth, boxHeight); worldCtx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+                    worldCtx.fillStyle = "#000000"; worldCtx.fillText(p.chatMessage, p.x, p.y - chatOffsetY + 17);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

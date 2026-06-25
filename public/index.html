@@ -357,31 +357,37 @@
       }
 
 
-    /* ปรับกล่องโพสต์ให้ดูดี */
     .post-card {
-        background: #fffdf0; /* สีเหลืองกระดาษเก่า */
-        border: 2px solid #d2b48c; /* สีขอบไม้ */
-        border-radius: 12px;
-        padding: 15px;
-        margin: 15px 0;
-        box-shadow: 4px 4px 0px rgba(0,0,0,0.1); /* เพิ่มมิติให้ดูเป็นแผ่นกระดาษ */
-        position: relative;
-    }
+    background: #ffffff; /* พื้นหลังสีขาวสะอาด */
+    border-left: 10px solid #8b4513; /* มีแถบสีเข้มด้านข้างเหมือนหัวกระดาษ */
+    border-radius: 0 10px 10px 0;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.15);
+    border: 1px solid #ddd;
+}
 
-    .post-author {
-        font-weight: bold;
-        color: #8b4513;
-        font-size: 1.1em;
-        margin-bottom: 8px;
-        display: block;
-    }
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
 
-    .post-text {
-        font-size: 16px;
-        line-height: 1.5;
-        color: #333;
-        word-wrap: break-word;
-    }
+.post-text {
+    font-size: 18px;
+    color: #444;
+    white-space: pre-wrap; /* ให้ข้อความตัดบรรทัดเองตามที่พิมพ์ */
+    min-height: 50px;
+}
+
+.post-author-name {
+    font-weight: 800;
+    color: #5d3a1a;
+    text-transform: uppercase;
+    font-size: 14px;
+}
 
     .post-footer {
         margin-top: 10px;

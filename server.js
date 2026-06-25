@@ -41,6 +41,7 @@ io.on('connection', (socket) => {
     // ... ส่วนของ game logic อื่นๆ ของคุณ
 });
 
+// ตรวจสอบให้แน่ใจว่า port ถูกต้อง
 http.listen(process.env.PORT || 3000, () => {
-    console.log('Server is running...');
+    console.log('Server is running on port ' + (process.env.PORT || 3000));
 });

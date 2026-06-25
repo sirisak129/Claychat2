@@ -3,6 +3,12 @@ const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 
+// เพิ่มส่วนนี้เข้าไปครับ
+app.use(express.static('public')); 
+// ถ้ายังเข้าไม่ได้ ให้เพิ่ม route พื้นฐานนี้ด้วยครับ
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 let players = {};
 let boardPosts = []; // เก็บโพสต์ทั้งหมด
 

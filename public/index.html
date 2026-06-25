@@ -451,6 +451,36 @@
       </div>
     </div>
     <script>
+        let myUsername = localStorage.getItem('clay_chat_name');
+if (!myUsername) {
+    myUsername = prompt("ตั้งชื่อตัวละครของคุณ:") || "Guest";
+    localStorage.setItem('clay_chat_name', myUsername);
+}
+        
+        // วางไว้ใน <script> ส่วนล่างของ index.html
+function showCreatePost() {
+    console.log("ปุ่มสร้างโพสต์ถูกกดแล้ว!"); // ลองกดดูว่ามันขึ้นใน Console ไหม
+    
+    const text = prompt("เขียนข้อความ (ไม่เกิน 400 ตัวอักษร):");
+    
+    if (text && text.length <= 400) {
+        // เช็กว่ามีตัวแปร socket และ myUsername จริงไหม
+        if (typeof socket !== 'undefined') {
+            socket.emit('create_post', {
+                author: myUsername, // ตรวจสอบว่า myUsername มีค่า
+                text: text,
+                isPrivate: false,
+                allowedUsers: []
+            });
+            alert("โพสต์สำเร็จ!");
+        } else {
+            console.error("Socket ไม่ทำงาน!");
+        }
+    } else {
+        alert("ข้อความต้องมีค่าและไม่เกิน 400 ตัวอักษร");
+    }
+}
+        
       // === [ส่วนที่ 1: ระบบวาดดินน้ำมัน] ===
       const canvas = document.getElementById('avatarCanvas');
       const ctx = canvas.getContext('2d');
@@ -939,7 +969,7 @@
             imageCache[id] = new Image();
             imageCache[id].src = p.avatar;
           }
-          const charSize = 80;
+          const charSize = 140;
           if (imageCache[id].complete) {
             worldCtx.drawImage(imageCache[id], p.x - (charSize / 2), p.y - charSize + 10, charSize, charSize);
           }

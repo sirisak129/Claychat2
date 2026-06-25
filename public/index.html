@@ -294,6 +294,39 @@
             }
         }
 
+        // ตรวจสอบระยะห่าง ถ้าเดินใกล้บอร์ด (ตำแหน่งสมมติ 400, 200) ให้เด้ง Modal
+function checkBoardCollision(player) {
+    const dist = Math.sqrt((player.x - 400)**2 + (player.y - 200)**2);
+    if (dist < 50) document.getElementById('boardModal').style.display = 'block';
+}
+
+// โหลดบอร์ดจากเซิร์ฟเวอร์
+socket.on('update_board', (posts) => {
+    const content = document.getElementById('boardContent');
+    content.innerHTML = posts.map(p => {
+        // กรองสิทธิ์การมองเห็น
+        const canSee = !p.isPrivate || p.allowedUsers.includes(myUsername);
+        if (!canSee) return `<div class="post">🔒 Private Post</div>`;
+        
+        return `
+            <div class="post">
+                <p><b>${p.author}:</b> ${p.text}</p>
+                <button onclick="openComments(${p.id})">💬 คอมเมนต์ (${p.comments.length})</button>
+            </div>
+        `;
+    }).join('');
+});
+
+// ระบบ Username ครั้งเดียวจบ
+function setUsername() {
+    let name = localStorage.getItem('myUsername');
+    if (!name) {
+        name = prompt("ตั้งชื่อ Username (ตั้งได้ครั้งเดียว!):");
+        localStorage.setItem('myUsername', name);
+    }
+    myUsername = name;
+}
+        
         socket.on('current_players', (serverPlayers) => {
             Object.keys(serverPlayers).forEach(id => {
                 serverPlayers[id].targetX = serverPlayers[id].x; serverPlayers[id].targetY = serverPlayers[id].y;

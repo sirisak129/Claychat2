@@ -2,6 +2,38 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 
+let boardPosts = []; // เก็บโพสต์ทั้งหมด
+
+// ใน io.on('connection', ...)
+socket.on('get_board', () => {
+    // กรองโพสต์ที่อายุเกิน 72 ชม. ออก (1000 * 60 * 60 * 72)
+    const now = Date.now();
+    boardPosts = boardPosts.filter(p => now - p.timestamp < 259200000);
+    socket.emit('update_board', boardPosts);
+});
+
+socket.on('create_post', (data) => {
+    const newPost = {
+        id: Date.now(),
+        author: data.author,
+        text: data.text,
+        isPrivate: data.isPrivate,
+        allowedUsers: data.allowedUsers, // Array ของ username
+        comments: [],
+        timestamp: Date.now()
+    };
+    boardPosts.push(newPost);
+    io.emit('update_board', boardPosts);
+});
+
+socket.on('add_comment', (data) => {
+    const post = boardPosts.find(p => p.id === data.postId);
+    if (post) {
+        post.comments.push({ author: data.author, text: data.comment });
+        io.emit('update_board', boardPosts);
+    }
+});
+
 // 🛠️ แก้ไขตรงนี้: เพิ่ม maxHttpBufferSize เป็น 1e7 (ประมาณ 10MB) เพื่อให้รองรับการส่งรูปภาพไฟล์ใหญ่จากมือถือ
 const io = require('socket.io')(http, {
     maxHttpBufferSize: 1e7 

@@ -13,13 +13,18 @@ let players = {};
 let boardPosts = []; // เก็บโพสต์ทั้งหมด
 
 socket.on('update_board', (posts) => {
+socket.on('update_board', (posts) => {
     boardPosts = posts;
     document.getElementById('boardContent').innerHTML = posts.map(p => `
         <div class="post-card">
-            <span class="post-author">📌 ${p.author}</span>
+            <div class="post-header">
+                <span class="post-author-name">👤 ${p.author}</span>
+                <span style="color:#999; font-size:12px;">${new Date(p.timestamp).toLocaleDateString()}</span>
+            </div>
+            
             <div class="post-text">${p.text}</div>
-            <div class="post-footer">
-                <small>${new Date(p.timestamp).toLocaleTimeString()}</small>
+            
+            <div class="post-footer" style="margin-top:20px; text-align:right;">
                 <button class="comment-btn" onclick="openComments(${p.id})">
                     💬 ${p.comments.length} คอมเมนต์
                 </button>
@@ -27,6 +32,7 @@ socket.on('update_board', (posts) => {
         </div>
     `).join('');
 });
+
 
 io.on('connection', (socket) => {
     // ส่งข้อมูลบอร์ดให้ผู้เล่นใหม่
